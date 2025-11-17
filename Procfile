@@ -1,0 +1,1 @@
+web: PYTHONPATH=. gunicorn api:app -w 2 -k gthread -b 0.0.0.0:$PORT --timeout 120
