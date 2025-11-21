@@ -5,17 +5,17 @@ Idempotent schema creation and management
 
 from sqlalchemy import inspect, text
 
-from api.vysalytica.db import Base, engine, SessionLocal
+from api.vysalytica.db import Base, SessionLocal, engine
 from api.vysalytica.db.models import (
-    AuditRun,
-    Finding,
-    CitationSnapshot,
-    APIKey,
-    ReferralCode,
-    ReferralAttribution,
     AnswerGraph,
+    APIKey,
+    AuditRun,
+    CitationSnapshot,
+    Finding,
     Playbook,
     PlaybookFix,
+    ReferralAttribution,
+    ReferralCode,
     RuleDefinition,
 )
 from api.vysalytica.db.rule_seed_data import RULE_DEFINITION_SEED_DATA
@@ -82,9 +82,7 @@ def seed_rule_definitions() -> bool:
         session.close()
 
     if inserted or updated:
-        print(
-            f"✓ Seeded {inserted} new and updated {updated} AI Optimization rule definitions"
-        )
+        print(f"✓ Seeded {inserted} new and updated {updated} AI Optimization rule definitions")
     else:
         print("✓ Rule definitions already up to date")
 

@@ -119,9 +119,7 @@ def enforce_plan(plan_name: str, pages: List, packs: List[str]) -> Dict:
         filtered_packs = ["base"]
 
     # Check if limiting occurred
-    limited = len(limited_pages) < original_page_count or set(filtered_packs) != set(
-        packs
-    )
+    limited = len(limited_pages) < original_page_count or set(filtered_packs) != set(packs)
 
     return {
         "plan": plan_name,

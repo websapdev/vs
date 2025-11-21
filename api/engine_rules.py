@@ -5,7 +5,6 @@ Evaluates pages against rule packs and generates findings
 
 from typing import Dict, List, Tuple
 
-
 # Rule pack definitions
 RULE_PACKS = {
     "base": [
@@ -96,9 +95,7 @@ def check_canonicals(pages: List[Dict], site_meta: Dict) -> Dict:
     if total == 0:
         return {
             "status": "fail",
-            "evidence": [
-                {"url": site_meta["base_url"], "snippet": "No pages to check"}
-            ],
+            "evidence": [{"url": site_meta["base_url"], "snippet": "No pages to check"}],
         }
 
     with_canonical = sum(1 for page in pages if page.get("canonical"))
@@ -112,9 +109,7 @@ def check_canonicals(pages: List[Dict], site_meta: Dict) -> Dict:
 
     return {
         "status": "fail",
-        "evidence": [
-            {"url": url, "snippet": "Missing canonical tag"} for url in urls_without[:3]
-        ],
+        "evidence": [{"url": url, "snippet": "Missing canonical tag"} for url in urls_without[:3]],
     }
 
 
@@ -202,15 +197,11 @@ def check_headings(pages: List[Dict], site_meta: Dict) -> Dict:
     if total == 0:
         return {
             "status": "fail",
-            "evidence": [
-                {"url": site_meta["base_url"], "snippet": "No pages to check"}
-            ],
+            "evidence": [{"url": site_meta["base_url"], "snippet": "No pages to check"}],
         }
 
     with_headings = sum(
-        1
-        for page in pages
-        if page.get("h_tags", {}).get("h2") and page.get("h_tags", {}).get("h3")
+        1 for page in pages if page.get("h_tags", {}).get("h2") and page.get("h_tags", {}).get("h3")
     )
     pct = (with_headings / total) * 100
 
@@ -227,8 +218,7 @@ def check_headings(pages: List[Dict], site_meta: Dict) -> Dict:
     return {
         "status": "fail",
         "evidence": [
-            {"url": url, "snippet": "Missing H2/H3 structure"}
-            for url in urls_without[:3]
+            {"url": url, "snippet": "Missing H2/H3 structure"} for url in urls_without[:3]
         ],
     }
 
@@ -237,9 +227,7 @@ def check_product_schema(pages: List[Dict], site_meta: Dict) -> Dict:
     """Checks if Product schema exists on at least one page."""
     # Identify potential product pages
     product_pages = [
-        p
-        for p in pages
-        if "/product" in p["url"].lower() or "/shop" in p["url"].lower()
+        p for p in pages if "/product" in p["url"].lower() or "/shop" in p["url"].lower()
     ]
     pages_to_check = product_pages if product_pages else pages
 
@@ -266,9 +254,7 @@ def check_offer_fields(pages: List[Dict], site_meta: Dict) -> Dict:
     """Checks if Product schema includes Offer with price, priceCurrency, and availability."""
     # Find pages with Product schema
     product_pages = [
-        p
-        for p in pages
-        if "/product" in p["url"].lower() or "/shop" in p["url"].lower()
+        p for p in pages if "/product" in p["url"].lower() or "/shop" in p["url"].lower()
     ]
     pages_to_check = product_pages if product_pages else pages
 
@@ -302,18 +288,14 @@ def check_offer_fields(pages: List[Dict], site_meta: Dict) -> Dict:
 
     return {
         "status": "fail",
-        "evidence": [
-            {"url": site_meta["base_url"], "snippet": "No Product schema found"}
-        ],
+        "evidence": [{"url": site_meta["base_url"], "snippet": "No Product schema found"}],
     }
 
 
 def check_openapi(pages: List[Dict], site_meta: Dict) -> Dict:
     """Checks if OpenAPI spec is discoverable."""
     # Identify docs pages
-    docs_pages = [
-        p for p in pages if "/docs" in p["url"].lower() or "/api" in p["url"].lower()
-    ]
+    docs_pages = [p for p in pages if "/docs" in p["url"].lower() or "/api" in p["url"].lower()]
 
     if docs_pages:
         # Check for OpenAPI/Swagger mentions
@@ -332,9 +314,7 @@ def check_openapi(pages: List[Dict], site_meta: Dict) -> Dict:
     else:
         return {
             "status": "fail",
-            "evidence": [
-                {"url": site_meta["base_url"], "snippet": "No docs pages found"}
-            ],
+            "evidence": [{"url": site_meta["base_url"], "snippet": "No docs pages found"}],
         }
 
 
@@ -423,9 +403,7 @@ RULES = {
 }
 
 
-def evaluate(
-    pages: List[Dict], site_meta: Dict, packs: List[str]
-) -> Tuple[List[Dict], Dict]:
+def evaluate(pages: List[Dict], site_meta: Dict, packs: List[str]) -> Tuple[List[Dict], Dict]:
     """
     Evaluates all relevant rules and calculates scores.
 
@@ -481,9 +459,7 @@ def evaluate(
         category_scores[category] = score
 
     # Calculate overall score
-    overall_score = (
-        sum(category_scores.values()) / len(category_scores) if category_scores else 0
-    )
+    overall_score = sum(category_scores.values()) / len(category_scores) if category_scores else 0
 
     scores = {"overall": overall_score, "by_category": category_scores}
 

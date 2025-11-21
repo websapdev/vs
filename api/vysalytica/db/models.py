@@ -2,9 +2,11 @@
 Database models for Vysalytica audit system
 """
 
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, JSON, ForeignKey
-from sqlalchemy.orm import relationship
 from datetime import datetime
+
+from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import relationship
+
 from api.vysalytica.db import Base
 
 
@@ -57,9 +59,7 @@ class Finding(Base):
     __tablename__ = "findings"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    audit_run_id = Column(
-        Integer, ForeignKey("audit_runs.id"), nullable=False, index=True
-    )
+    audit_run_id = Column(Integer, ForeignKey("audit_runs.id"), nullable=False, index=True)
     rule_id = Column(String(64), nullable=False, index=True)
     rule_title = Column(String(255), nullable=False)
     category = Column(String(64), nullable=False, index=True)
@@ -109,9 +109,7 @@ class RuleDefinition(Base):
     confidence = Column(Float, nullable=False, default=0.5)
     acceptance_criteria = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
-    )
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     def to_dict(self):
         """Convert to dictionary for JSON serialization."""
@@ -142,9 +140,7 @@ class CitationSnapshot(Base):
     brand = Column(String(255), nullable=False, index=True)
     intent = Column(String(512), nullable=False)
     assistant = Column(String(64), nullable=False, index=True)  # "ChatGPT" or "Claude"
-    cited = Column(
-        Integer, nullable=False
-    )  # 1 if cited, 0 if not (Boolean stored as int)
+    cited = Column(Integer, nullable=False)  # 1 if cited, 0 if not (Boolean stored as int)
     response_text = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True, nullable=False)
 
@@ -185,9 +181,7 @@ class APIKey(Base):
             "name": self.name,
             "quota_per_hour": self.quota_per_hour,
             "created_at": self.created_at.isoformat() if self.created_at else None,
-            "last_used_at": (
-                self.last_used_at.isoformat() if self.last_used_at else None
-            ),
+            "last_used_at": (self.last_used_at.isoformat() if self.last_used_at else None),
             "is_active": bool(self.is_active),
         }
 
@@ -309,9 +303,7 @@ class PlaybookFix(Base):
     __tablename__ = "playbook_fixes"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    playbook_id = Column(
-        Integer, ForeignKey("playbooks.id"), index=True, nullable=False
-    )
+    playbook_id = Column(Integer, ForeignKey("playbooks.id"), index=True, nullable=False)
     fix_id = Column(String(128), nullable=False)
     title = Column(String(255), nullable=False)
     language = Column(String(32), nullable=True)

@@ -31,16 +31,11 @@ if ROUTELLM_API_KEY:
         # Debug client parameters to help diagnose version conflicts
         debug_openai_client_info()
 
-        client = create_openai_client_safe(
-            api_key=ROUTELLM_API_KEY,
-            base_url=ROUTELLM_BASE_URL
-        )
+        client = create_openai_client_safe(api_key=ROUTELLM_API_KEY, base_url=ROUTELLM_BASE_URL)
         OPENAI_AVAILABLE = True
-        print(
-            f"✓ RouteLLM configured (base_url: {ROUTELLM_BASE_URL}, model: {ROUTELLM_MODEL})"
-        )
+        print(f"✓ RouteLLM configured (base_url: {ROUTELLM_BASE_URL}, model: {ROUTELLM_MODEL})")
     except TypeError as e:
-        if 'proxies' in str(e):
+        if "proxies" in str(e):
             print(f"✗ RouteLLM still receiving 'proxies' argument: {e}")
             print(f"✗ This suggests an external library is passing 'proxies'")
         else:
@@ -55,7 +50,7 @@ elif OPENAI_API_KEY:
         OPENAI_AVAILABLE = True
         print("✓ OpenAI configured")
     except TypeError as e:
-        if 'proxies' in str(e):
+        if "proxies" in str(e):
             print(f"✗ OpenAI still receiving 'proxies' argument: {e}")
         else:
             print(f"✗ OpenAI initialization failed: {e}")

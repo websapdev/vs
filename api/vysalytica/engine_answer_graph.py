@@ -15,17 +15,16 @@ Caching:
 - In-process TTL cache keyed by (domain, intents, packs) with ANSWER_GRAPH_CACHE_TTL seconds
 
 """
+
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Any
-from urllib.parse import urlparse
 import os
 import time
+from typing import Any, Dict, List, Tuple
+from urllib.parse import urlparse
 
 # Reuse project engines
-from api import engine_crawl
-from api import engine_parse
-
+from api import engine_crawl, engine_parse
 
 _CACHE: Dict[Tuple[str, Tuple[str, ...], Tuple[str, ...]], Tuple[float, Dict[str, Any]]] = {}
 
@@ -38,7 +37,9 @@ def _ttl_seconds() -> int:
 
 
 def _norm_domain(domain_or_url: str) -> str:
-    parsed = urlparse(domain_or_url if domain_or_url.startswith("http") else f"https://{domain_or_url}")
+    parsed = urlparse(
+        domain_or_url if domain_or_url.startswith("http") else f"https://{domain_or_url}"
+    )
     return parsed.netloc.lower()
 
 
@@ -50,9 +51,25 @@ def _extract_entities_from_page(page: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     # Title/H1 entities
     if title:
-        entities.append({"type": "entity", "id": f"ent:{url}#title", "label": title[:120], "source": url, "kind": "Title"})
+        entities.append(
+            {
+                "type": "entity",
+                "id": f"ent:{url}#title",
+                "label": title[:120],
+                "source": url,
+                "kind": "Title",
+            }
+        )
     for idx, h in enumerate(h1s[:3]):
-        entities.append({"type": "entity", "id": f"ent:{url}#h1-{idx}", "label": h[:120], "source": url, "kind": "H1"})
+        entities.append(
+            {
+                "type": "entity",
+                "id": f"ent:{url}#h1-{idx}",
+                "label": h[:120],
+                "source": url,
+                "kind": "H1",
+            }
+        )
 
     # JSON-LD entities
     for jd in page.get("jsonld", []) or []:
@@ -63,17 +80,21 @@ def _extract_entities_from_page(page: Dict[str, Any]) -> List[Dict[str, Any]]:
                 typ = ",".join(t for t in typ if isinstance(t, str))
             if typ or name:
                 label = f"{name or typ}"
-                entities.append({
-                    "type": "entity",
-                    "id": f"ent:{url}#jsonld:{name or typ}",
-                    "label": str(label)[:160],
-                    "source": url,
-                    "kind": f"JSON-LD:{typ or 'Unknown'}",
-                })
+                entities.append(
+                    {
+                        "type": "entity",
+                        "id": f"ent:{url}#jsonld:{name or typ}",
+                        "label": str(label)[:160],
+                        "source": url,
+                        "kind": f"JSON-LD:{typ or 'Unknown'}",
+                    }
+                )
     return entities
 
 
-def _detect_gaps(pages: List[Dict[str, Any]], domain: str, intents: List[str]) -> List[Dict[str, Any]]:
+def _detect_gaps(
+    pages: List[Dict[str, Any]], domain: str, intents: List[str]
+) -> List[Dict[str, Any]]:
     gaps: List[Dict[str, Any]] = []
 
     # Homepage signals
@@ -88,12 +109,17 @@ def _detect_gaps(pages: List[Dict[str, Any]], domain: str, intents: List[str]) -
         for j in (jsonld_home or [])
     )
     if not has_org:
-        gaps.append({
-            "id": "gap:org-jsonld",
-            "title": "Missing Organization JSON-LD on homepage",
-            "severity": "high",
-            "evidence": {"page": homepage.get("url"), "hint": "Add Organization with sameAs, url, logo"},
-        })
+        gaps.append(
+            {
+                "id": "gap:org-jsonld",
+                "title": "Missing Organization JSON-LD on homepage",
+                "severity": "high",
+                "evidence": {
+                    "page": homepage.get("url"),
+                    "hint": "Add Organization with sameAs, url, logo",
+                },
+            }
+        )
 
     # FAQ/TLDR presence across pages
     def _has_tldr_or_faq(page: Dict[str, Any]) -> bool:
@@ -103,29 +129,35 @@ def _detect_gaps(pages: List[Dict[str, Any]], domain: str, intents: List[str]) -
         return ("tl;dr" in title) or any("faq" in h or "tl;dr" in h for h in (h2s + [body_join]))
 
     if not any(_has_tldr_or_faq(p) for p in pages[:5]):
-        gaps.append({
-            "id": "gap:tldr-faq",
-            "title": "No TL;DR or FAQ blocks detected",
-            "severity": "medium",
-            "evidence": {"pages_checked": [p.get("url") for p in pages[:5]]},
-        })
+        gaps.append(
+            {
+                "id": "gap:tldr-faq",
+                "title": "No TL;DR or FAQ blocks detected",
+                "severity": "medium",
+                "evidence": {"pages_checked": [p.get("url") for p in pages[:5]]},
+            }
+        )
 
     # Intent coverage (very simple keyword match over titles/H1)
     for intent in intents[:10]:
         tokens = [t.strip().lower() for t in intent.split()] if intent else []
         covered = False
         for p in pages:
-            text_blob = " ".join([(p.get("title") or ""), " ".join(p.get("h_tags", {}).get("h1", []) or [])]).lower()
+            text_blob = " ".join(
+                [(p.get("title") or ""), " ".join(p.get("h_tags", {}).get("h1", []) or [])]
+            ).lower()
             if all(tok in text_blob for tok in tokens[:2]):  # cheap heuristic
                 covered = True
                 break
         if not covered:
-            gaps.append({
-                "id": f"gap:intent:{intent}",
-                "title": f"Weak coverage for intent: {intent}",
-                "severity": "medium",
-                "evidence": {"hint": "Create hub or FAQ addressing phrasing variations"},
-            })
+            gaps.append(
+                {
+                    "id": f"gap:intent:{intent}",
+                    "title": f"Weak coverage for intent: {intent}",
+                    "severity": "medium",
+                    "evidence": {"hint": "Create hub or FAQ addressing phrasing variations"},
+                }
+            )
 
     # Schema coverage on key types
     required_types = {"FAQPage", "HowTo", "Product", "Article"}
@@ -141,11 +173,13 @@ def _detect_gaps(pages: List[Dict[str, Any]], domain: str, intents: List[str]) -
                         if isinstance(s, str):
                             found_types.add(s)
     for req in sorted(required_types - found_types):
-        gaps.append({
-            "id": f"gap:schema:{req}",
-            "title": f"Missing {req} schema on relevant pages",
-            "severity": "low",
-        })
+        gaps.append(
+            {
+                "id": f"gap:schema:{req}",
+                "title": f"Missing {req} schema on relevant pages",
+                "severity": "low",
+            }
+        )
 
     return gaps
 
@@ -186,7 +220,16 @@ def build_answer_graph(domain: str, intents: List[str], packs: List[str]) -> Dic
         pages = engine_parse.parse_site(urls)
     except Exception:
         # Partial failure handling: still return minimal graph
-        pages = [{"url": u, "title": None, "h_tags": {"h1": [], "h2": [], "h3": []}, "jsonld": [], "error": True} for u in urls]
+        pages = [
+            {
+                "url": u,
+                "title": None,
+                "h_tags": {"h1": [], "h2": [], "h3": []},
+                "jsonld": [],
+                "error": True,
+            }
+            for u in urls
+        ]
 
     # Build nodes/edges
     nodes: List[Dict[str, Any]] = []
@@ -194,7 +237,13 @@ def build_answer_graph(domain: str, intents: List[str], packs: List[str]) -> Dic
 
     page_nodes = []
     for p in pages:
-        page_node = {"type": "page", "id": f"page:{p['url']}", "label": p.get("title") or p["url"], "url": p["url"], "meta": {"has_error": bool(p.get("error"))}}
+        page_node = {
+            "type": "page",
+            "id": f"page:{p['url']}",
+            "label": p.get("title") or p["url"],
+            "url": p["url"],
+            "meta": {"has_error": bool(p.get("error"))},
+        }
         page_nodes.append(page_node)
         nodes.append(page_node)
         # Add entity nodes and edges
@@ -209,14 +258,18 @@ def build_answer_graph(domain: str, intents: List[str], packs: List[str]) -> Dic
         for p in pages:
             blob = (p.get("title") or "") + " " + " ".join(p.get("h_tags", {}).get("h1", []) or [])
             if not any(tok in blob.lower() for tok in top_tokens):
-                edges.append({
-                    "source": f"page:{p['url']}",
-                    "target": f"intent:{intents[0]}",
-                    "type": "suggest-link",
-                    "reason": "Add internal link with target intent anchor",
-                })
+                edges.append(
+                    {
+                        "source": f"page:{p['url']}",
+                        "target": f"intent:{intents[0]}",
+                        "type": "suggest-link",
+                        "reason": "Add internal link with target intent anchor",
+                    }
+                )
         # Add intent node (virtual)
-        nodes.append({"type": "entity", "id": f"intent:{intents[0]}", "label": intents[0], "kind": "Intent"})
+        nodes.append(
+            {"type": "entity", "id": f"intent:{intents[0]}", "label": intents[0], "kind": "Intent"}
+        )
 
     # Gaps and scores
     gaps = _detect_gaps(pages, domain_norm, intents)
@@ -233,7 +286,9 @@ def build_answer_graph(domain: str, intents: List[str], packs: List[str]) -> Dic
         "stats": {
             "pages": len(pages),
             "entities": len([n for n in nodes if n.get("type") == "entity"]),
-            "schema_entities": sum(1 for n in nodes if str(n.get("kind", "")).startswith("JSON-LD")),
+            "schema_entities": sum(
+                1 for n in nodes if str(n.get("kind", "")).startswith("JSON-LD")
+            ),
         },
     }
 

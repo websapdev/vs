@@ -3,23 +3,35 @@ API Key Middleware (P0-4)
 Provides authentication and rate limiting for public API
 """
 
-from functools import wraps
-from flask import request, jsonify, current_app
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 import os
+import secrets
 from datetime import datetime
+from functools import wraps
+
+from flask import current_app, jsonify, request
+from flask_limiter import Limiter
+
+from api.vysalytica.config import get_rate_limit
 from api.vysalytica.db import SessionLocal
 from api.vysalytica.db.models import APIKey
-import secrets
-
 
 # Initialize rate limiter (storage configurable via env)
 _storage_uri = os.getenv("LIMITER_STORAGE_URI", "memory://")
+_default_rate = get_rate_limit()
+
+
+def _forwarded_remote_address() -> str:
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
 limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=["100 per hour"],
+    key_func=_forwarded_remote_address,
+    default_limits=[_default_rate] if _default_rate else [],
     storage_uri=_storage_uri,
+    headers_enabled=True,
 )
 
 
@@ -52,9 +64,7 @@ def require_api_key(f):
         db = SessionLocal()
         try:
             key_record = (
-                db.query(APIKey)
-                .filter(APIKey.key == api_key, APIKey.is_active == 1)
-                .first()
+                db.query(APIKey).filter(APIKey.key == api_key, APIKey.is_active == 1).first()
             )
 
             if not key_record:
@@ -163,14 +173,12 @@ def generate_api_key(name: str = None, quota_per_hour: int = 10) -> dict:
             "key": api_key.key,
             "name": api_key.name,
             "quota_per_hour": api_key.quota_per_hour,
-            "created_at": (
-                api_key.created_at.isoformat() if api_key.created_at else None
-            ),
+            "created_at": (api_key.created_at.isoformat() if api_key.created_at else None),
         }
 
     except Exception as e:
         db.rollback()
-        raise Exception(f"Failed to generate API key: {str(e)}")
+        raise Exception(f"Failed to generate API key: {str(e)}") from e
     finally:
         db.close()
 
@@ -198,7 +206,7 @@ def revoke_api_key(key: str) -> bool:
 
     except Exception as e:
         db.rollback()
-        raise Exception(f"Failed to revoke API key: {str(e)}")
+        raise Exception(f"Failed to revoke API key: {str(e)}") from e
     finally:
         db.close()
 

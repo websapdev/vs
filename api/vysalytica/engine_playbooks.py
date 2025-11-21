@@ -14,8 +14,8 @@ Free-tier friendly:
 
 from __future__ import annotations
 
-from typing import Dict, List, Any
 import json
+from typing import Any, Dict, List
 
 from api.vysalytica.config import (
     create_openai_client_safe,
@@ -39,14 +39,13 @@ if ROUTELLM_API_KEY:
         debug_openai_client_info()
 
         openai_client = create_openai_client_safe(
-            api_key=ROUTELLM_API_KEY,
-            base_url=ROUTELLM_BASE_URL
+            api_key=ROUTELLM_API_KEY, base_url=ROUTELLM_BASE_URL
         )
         print(
             f"✓ RouteLLM configured for playbook enrichment (base_url: {ROUTELLM_BASE_URL}, model: {ROUTELLM_MODEL})"
         )
     except TypeError as exc:
-        if 'proxies' in str(exc):
+        if "proxies" in str(exc):
             print(f"✗ RouteLLM still receiving 'proxies' argument: {exc}")
             print(f"✗ This suggests an external library is passing 'proxies'")
         else:
@@ -60,7 +59,7 @@ elif OPENAI_API_KEY:
         openai_client = create_openai_client_safe(api_key=OPENAI_API_KEY)
         print("✓ OpenAI configured for playbook enrichment")
     except TypeError as exc:
-        if 'proxies' in str(exc):
+        if "proxies" in str(exc):
             print(f"✗ OpenAI still receiving 'proxies' argument: {exc}")
         else:
             print(f"✗ OpenAI initialization failed: {exc}")
@@ -196,8 +195,7 @@ def generate_playbook(
         "faq_html": faq_html,
         "acceptance_tests_py": _acceptance_tests(domain_norm, intent, target_assistant),
         "gaps_addressed": [g.get("id") for g in gaps],
-        "projected_impact": 12.0
-        + 6.0 * len([g for g in gaps if g.get("severity") == "high"]),
+        "projected_impact": 12.0 + 6.0 * len([g for g in gaps if g.get("severity") == "high"]),
     }
 
     return playbook

@@ -3,7 +3,6 @@ Database configuration and session management
 """
 
 from pathlib import Path
-from typing import Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
@@ -14,11 +13,11 @@ from api.vysalytica.config import DEFAULT_DATABASE_URL, get_database_url
 
 # Database configuration
 DATABASE_URL = get_database_url()
-sqlite_path: Optional[Path] = None
+sqlite_path: Path | None = None
 
 if DATABASE_URL == DEFAULT_DATABASE_URL:
     project_root = Path(__file__).resolve().parents[2]
-    sqlite_path = (project_root / "data" / "vysalytica.db").resolve()
+    sqlite_path = (project_root / "api" / "data" / "vysalytica.db").resolve()
 elif DATABASE_URL.startswith("sqlite"):
     try:
         parsed_url = make_url(DATABASE_URL)
@@ -54,9 +53,7 @@ engine = create_engine(
 )
 
 # Session factory
-SessionLocal = sessionmaker(
-    bind=engine, autoflush=False, autocommit=False, expire_on_commit=False
-)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 # Declarative base for models
 Base = declarative_base()
