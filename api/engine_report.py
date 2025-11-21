@@ -4,15 +4,14 @@ Generates Markdown and DOCX audit reports
 """
 
 from datetime import datetime
+from io import BytesIO
 from typing import Dict, List
+
 from docx import Document
 from docx.shared import Pt, RGBColor
-from io import BytesIO
 
 
-def generate_markdown(
-    site_url: str, packs: List[str], scores: Dict, findings: List[Dict]
-) -> str:
+def generate_markdown(site_url: str, packs: List[str], scores: Dict, findings: List[Dict]) -> str:
     """
     Generates Markdown format report.
 
@@ -92,9 +91,7 @@ This is a quick scan analyzing up to 12 pages for AI discoverability. For a comp
     return md
 
 
-def generate_docx(
-    site_url: str, packs: List[str], scores: Dict, findings: List[Dict]
-) -> bytes:
+def generate_docx(site_url: str, packs: List[str], scores: Dict, findings: List[Dict]) -> bytes:
     """
     Generates DOCX format report using python-docx.
 
@@ -144,9 +141,7 @@ def generate_docx(
     if passed:
         doc.add_heading("Passed Rules", 2)
         for finding in passed:
-            doc.add_paragraph(
-                f"✓ {finding['id']} - {finding['title']}", style="List Bullet"
-            )
+            doc.add_paragraph(f"✓ {finding['id']} - {finding['title']}", style="List Bullet")
 
     # Issues found
     issues = [f for f in findings if f["status"] in ["fail", "partial"]]
@@ -163,12 +158,8 @@ def generate_docx(
             if finding["evidence"]:
                 doc.add_paragraph("Evidence:")
                 for evidence in finding["evidence"]:
-                    doc.add_paragraph(
-                        f"  • URL: {evidence['url']}", style="List Bullet 2"
-                    )
-                    doc.add_paragraph(
-                        f"    {evidence['snippet']}", style="List Bullet 3"
-                    )
+                    doc.add_paragraph(f"  • URL: {evidence['url']}", style="List Bullet 2")
+                    doc.add_paragraph(f"    {evidence['snippet']}", style="List Bullet 3")
 
             doc.add_paragraph(f"How to fix: {finding['fix']}")
 

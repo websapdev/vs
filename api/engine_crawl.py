@@ -9,12 +9,13 @@ Enhancements:
 """
 
 import os
-import time
 import random
+import time
+from typing import Dict, List, Tuple
+from urllib.parse import urljoin, urlparse
+
 import requests
-from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
-from typing import Tuple, List, Dict
 
 # Simple in-memory cache for special endpoints (robots/sitemap)
 _SPECIAL_CACHE: Dict[str, Tuple[float, str]] = {}
@@ -25,7 +26,12 @@ def _is_special_cached_url(url: str) -> bool:
     try:
         parsed = urlparse(url)
         path = (parsed.path or "").lower()
-        return path.endswith("/robots.txt") or path.endswith("/sitemap.xml") or path == "/robots.txt" or path == "/sitemap.xml"
+        return (
+            path.endswith("/robots.txt")
+            or path.endswith("/sitemap.xml")
+            or path == "/robots.txt"
+            or path == "/sitemap.xml"
+        )
     except Exception:
         return False
 
@@ -57,7 +63,7 @@ def fetch(url: str) -> Tuple[str, str]:
                 url,
                 timeout=10,
                 headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                 },
             )
             # Retry on transient server errors
@@ -70,19 +76,19 @@ def fetch(url: str) -> Tuple[str, str]:
                     _SPECIAL_CACHE[url] = (time.time(), html)
                 return (url, html)
             # Non-200 and not retriable
-            return (url, '')
+            return (url, "")
         except Exception:
             # Final attempt: break and return empty
             if attempt == retry_count - 1:
                 break
             # Exponential backoff with jitter
-            delay = backoff_base * (2 ** attempt) + random.uniform(0, 0.1)
+            delay = backoff_base * (2**attempt) + random.uniform(0, 0.1)
             try:
                 time.sleep(delay)
             except Exception:
                 pass
 
-    return (url, '')
+    return (url, "")
 
 
 def discover_pages(url: str, max_pages: int | None = None) -> List[str]:
@@ -103,7 +109,7 @@ def discover_pages(url: str, max_pages: int | None = None) -> List[str]:
     # Parse and normalize input URL
     parsed = urlparse(url)
     if not parsed.scheme:
-        url = 'https://' + url
+        url = "https://" + url
         parsed = urlparse(url)
 
     base_domain = parsed.netloc
@@ -119,8 +125,8 @@ def discover_pages(url: str, max_pages: int | None = None) -> List[str]:
 
     if sitemap_html:
         try:
-            soup = BeautifulSoup(sitemap_html, 'lxml-xml')
-            locs = soup.find_all('loc')
+            soup = BeautifulSoup(sitemap_html, "lxml-xml")
+            locs = soup.find_all("loc")
             # Take up to (max_pages - 1) from sitemap since we already have homepage
             sitemap_limit = min(len(locs), max_pages - 1)
             for loc in locs[:sitemap_limit]:
@@ -139,22 +145,24 @@ def discover_pages(url: str, max_pages: int | None = None) -> List[str]:
         _, homepage_html = fetch(url)
         if homepage_html:
             try:
-                soup = BeautifulSoup(homepage_html, 'html.parser')
-                links = soup.find_all('a', href=True)
+                soup = BeautifulSoup(homepage_html, "html.parser")
+                links = soup.find_all("a", href=True)
 
                 # Categorize by depth
                 urls_by_depth = {0: [], 1: [], 2: [], 3: []}
 
                 for link in links:
-                    href = link['href']
+                    href = link["href"]
                     absolute_url = urljoin(base_url, href)
 
                     # Filter invalid URLs
                     parsed_link = urlparse(absolute_url)
-                    if (parsed_link.netloc != base_domain or
-                        parsed_link.scheme not in ['http', 'https'] or
-                        absolute_url.startswith('mailto:') or
-                        absolute_url.startswith('javascript:')):
+                    if (
+                        parsed_link.netloc != base_domain
+                        or parsed_link.scheme not in ["http", "https"]
+                        or absolute_url.startswith("mailto:")
+                        or absolute_url.startswith("javascript:")
+                    ):
                         continue
 
                     # Normalize and deduplicate
@@ -163,8 +171,8 @@ def discover_pages(url: str, max_pages: int | None = None) -> List[str]:
                         continue
 
                     # Calculate path depth
-                    path = parsed_link.path.strip('/')
-                    depth = len(path.split('/')) if path else 0
+                    path = parsed_link.path.strip("/")
+                    depth = len(path.split("/")) if path else 0
                     depth_key = min(depth, 3)
 
                     urls_by_depth[depth_key].append(absolute_url)
@@ -207,7 +215,11 @@ def fetch_many(urls: List[str], max_workers: int | None = None) -> List[Tuple[st
         # Fallback to sequential if concurrency primitives unavailable
         return [fetch(u) for u in urls]
 
-    workers = max_workers if isinstance(max_workers, int) and max_workers > 0 else int(os.getenv("CRAWL_MAX_WORKERS", "4") or 4)
+    workers = (
+        max_workers
+        if isinstance(max_workers, int) and max_workers > 0
+        else int(os.getenv("CRAWL_MAX_WORKERS", "4") or 4)
+    )
     # Ensure at least 1 worker
     workers = max(1, workers)
 
@@ -219,17 +231,17 @@ def fetch_many(urls: List[str], max_workers: int | None = None) -> List[Tuple[st
             try:
                 out[u] = future.result()
             except Exception:
-                out[u] = (u, '')
+                out[u] = (u, "")
 
     # Preserve original order
-    return [out.get(u, (u, '')) for u in urls]
+    return [out.get(u, (u, "")) for u in urls]
 
 
 def _normalize_url(url: str) -> str:
     """Normalizes URL for comparison."""
     parsed = urlparse(url)
     # Remove fragment and trailing slash
-    path = parsed.path.rstrip('/')
+    path = parsed.path.rstrip("/")
     normalized = f"{parsed.scheme}://{parsed.netloc.lower()}{path}"
     if parsed.query:
         normalized += f"?{parsed.query}"

@@ -2,14 +2,15 @@
 """
 Test script to validate import paths are correct without executing modules
 """
+import ast
 import os
 import sys
-import ast
 
 # Set PYTHONPATH as it would be in the start command (using absolute path)
-project_root = '/home/engine/project'
-os.environ['PYTHONPATH'] = project_root
+project_root = "/home/engine/project"
+os.environ["PYTHONPATH"] = project_root
 sys.path.insert(0, project_root)
+
 
 def check_import_syntax(file_path, import_line):
     """Check if an import line has valid syntax"""
@@ -19,10 +20,11 @@ def check_import_syntax(file_path, import_line):
     except SyntaxError:
         return False
 
+
 # Test that the import statements we added are syntactically correct
 test_imports = [
     "from api import engine_crawl",
-    "from api import engine_parse", 
+    "from api import engine_parse",
     "from api import engine_rules_enhanced as engine_rules",
     "from api import engine_report",
     "from api.vysalytica.db import SessionLocal",
@@ -31,7 +33,7 @@ test_imports = [
     "from api.vysalytica.middleware import limiter, require_api_key",
     "from api.vysalytica import plans",
     "from api.vysalytica.engine_answer_graph import build_answer_graph",
-    "from api.vysalytica.engine_playbooks import generate_playbook"
+    "from api.vysalytica.engine_playbooks import generate_playbook",
 ]
 
 print("Testing import syntax...")
@@ -46,7 +48,7 @@ for import_line in test_imports:
 files_to_check = [
     "/home/engine/project/api/__init__.py",
     "/home/engine/project/api/engine_crawl.py",
-    "/home/engine/project/api/engine_parse.py", 
+    "/home/engine/project/api/engine_parse.py",
     "/home/engine/project/api/engine_rules_enhanced.py",
     "/home/engine/project/api/engine_report.py",
     "/home/engine/project/api/vysalytica/__init__.py",
@@ -58,7 +60,7 @@ files_to_check = [
     "/home/engine/project/api/vysalytica/engine_ai_visibility.py",
     "/home/engine/project/api/vysalytica/engine_fixgen.py",
     "/home/engine/project/api/vysalytica/engine_playbooks.py",
-    "/home/engine/project/api/vysalytica/engine_answer_graph.py"
+    "/home/engine/project/api/vysalytica/engine_answer_graph.py",
 ]
 
 print("\nChecking file existence...")
@@ -74,14 +76,14 @@ print("\nTesting PYTHONPATH approach...")
 try:
     # Add project root to path
     sys.path.insert(0, project_root)
-    
+
     # Check if api directory can be found
-    api_path = os.path.join(project_root, 'api')
+    api_path = os.path.join(project_root, "api")
     if os.path.exists(api_path) and os.path.isdir(api_path):
         print(f"✓ api directory found at {api_path}")
-        
+
         # Check if api has __init__.py
-        init_path = os.path.join(api_path, '__init__.py')
+        init_path = os.path.join(api_path, "__init__.py")
         if os.path.exists(init_path):
             print(f"✓ api/__init__.py exists")
         else:
@@ -90,7 +92,7 @@ try:
     else:
         print(f"✗ api directory not found at {api_path}")
         sys.exit(1)
-        
+
 except Exception as e:
     print(f"✗ PYTHONPATH test failed: {e}")
     sys.exit(1)
@@ -102,15 +104,15 @@ print("✓ The PYTHONPATH approach will work on Render when dependencies are ins
 print("\nChecking for remaining old vysalytica imports...")
 import re
 
-old_import_pattern = re.compile(r'from\s+vysalytica\s+|import\s+vysalytica\s+')
+old_import_pattern = re.compile(r"from\s+vysalytica\s+|import\s+vysalytica\s+")
 found_old_imports = False
 
-for root, dirs, files in os.walk('/home/engine/project/api'):
+for root, dirs, files in os.walk("/home/engine/project/api"):
     for file in files:
-        if file.endswith('.py'):
+        if file.endswith(".py"):
             file_path = os.path.join(root, file)
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     content = f.read()
                     if old_import_pattern.search(content):
                         print(f"✗ Found old vysalytica import in {file_path}")

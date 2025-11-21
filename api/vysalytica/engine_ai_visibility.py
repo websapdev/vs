@@ -35,8 +35,7 @@ if ROUTELLM_API_KEY:
         debug_openai_client_info()
 
         openai_client = create_openai_client_safe(
-            api_key=ROUTELLM_API_KEY,
-            base_url=ROUTELLM_BASE_URL
+            api_key=ROUTELLM_API_KEY, base_url=ROUTELLM_BASE_URL
         )
 
         OPENAI_AVAILABLE = True
@@ -44,7 +43,7 @@ if ROUTELLM_API_KEY:
             f"✓ RouteLLM configured for citations (base_url: {ROUTELLM_BASE_URL}, model: {ROUTELLM_MODEL})"
         )
     except TypeError as e:
-        if 'proxies' in str(e):
+        if "proxies" in str(e):
             print(f"✗ RouteLLM still receiving 'proxies' argument: {e}")
             print(f"✗ This suggests an external library is passing 'proxies'")
         else:
@@ -59,7 +58,7 @@ elif OPENAI_API_KEY:
         OPENAI_AVAILABLE = True
         print("✓ OpenAI configured for citations")
     except TypeError as e:
-        if 'proxies' in str(e):
+        if "proxies" in str(e):
             print(f"✗ OpenAI still receiving 'proxies' argument: {e}")
         else:
             print(f"✗ OpenAI initialization failed: {e}")
@@ -240,9 +239,7 @@ def query_claude(intent: str, brand: str) -> Dict:
         }
 
 
-def track_citations(
-    intent: str, brand: str, assistants: List[str] = None
-) -> List[Dict]:
+def track_citations(intent: str, brand: str, assistants: List[str] = None) -> List[Dict]:
     """
     Track citations across multiple AI assistants.
 
@@ -296,11 +293,7 @@ def get_citation_rate(brand: str, db_session) -> Dict:
 
     try:
         # Query all citations for this brand
-        citations = (
-            db_session.query(CitationSnapshot)
-            .filter(CitationSnapshot.brand == brand)
-            .all()
-        )
+        citations = db_session.query(CitationSnapshot).filter(CitationSnapshot.brand == brand).all()
 
         if not citations:
             return {
@@ -315,9 +308,7 @@ def get_citation_rate(brand: str, db_session) -> Dict:
 
         # Calculate rates by assistant
         chatgpt_total = sum(1 for c in citations if c.assistant == "ChatGPT")
-        chatgpt_cited = sum(
-            1 for c in citations if c.assistant == "ChatGPT" and c.cited
-        )
+        chatgpt_cited = sum(1 for c in citations if c.assistant == "ChatGPT" and c.cited)
 
         claude_total = sum(1 for c in citations if c.assistant == "Claude")
         claude_cited = sum(1 for c in citations if c.assistant == "Claude" and c.cited)
@@ -329,16 +320,10 @@ def get_citation_rate(brand: str, db_session) -> Dict:
             "brand": brand,
             "total_queries": total_queries,
             "chatgpt_citations": chatgpt_cited,
-            "chatgpt_rate": (
-                (chatgpt_cited / chatgpt_total * 100) if chatgpt_total > 0 else 0.0
-            ),
+            "chatgpt_rate": ((chatgpt_cited / chatgpt_total * 100) if chatgpt_total > 0 else 0.0),
             "claude_citations": claude_cited,
-            "claude_rate": (
-                (claude_cited / claude_total * 100) if claude_total > 0 else 0.0
-            ),
-            "overall_rate": (
-                (total_cited / total_queries * 100) if total_queries > 0 else 0.0
-            ),
+            "claude_rate": ((claude_cited / claude_total * 100) if claude_total > 0 else 0.0),
+            "overall_rate": ((total_cited / total_queries * 100) if total_queries > 0 else 0.0),
         }
 
     except Exception as e:

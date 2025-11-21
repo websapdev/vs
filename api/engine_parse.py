@@ -3,20 +3,20 @@ Parsing engine for AI Visibility MVP
 Extracts structured data and content from HTML pages
 """
 
-from bs4 import BeautifulSoup
 import lxml.etree as _etree
+from bs4 import BeautifulSoup
 
 # Compatibility shim for lxml >=5 where _ElementStringResult was removed
-if not hasattr(_etree, "_ElementStringResult") and hasattr(
-    _etree, "_ElementUnicodeResult"
-):
+if not hasattr(_etree, "_ElementStringResult") and hasattr(_etree, "_ElementUnicodeResult"):
     _etree._ElementStringResult = _etree._ElementUnicodeResult  # type: ignore
 
-import extruct
+import os
 from typing import Dict, List
 from urllib.parse import urljoin, urlparse
+
+import extruct
+
 from api import engine_crawl
-import os
 
 
 def parse_page(url: str, html: str) -> Dict:
@@ -38,9 +38,7 @@ def parse_page(url: str, html: str) -> Dict:
         "article": {},
         "http_equiv_last_modified": None,
     }
-    empty_semantic = {
-        tag: 0 for tag in ["article", "section", "header", "footer", "main", "nav"]
-    }
+    empty_semantic = {tag: 0 for tag in ["article", "section", "header", "footer", "main", "nav"]}
     empty_media = {
         "images": {"total": 0, "with_alt": 0},
         "videos": {"count": 0, "has_captions": False},
@@ -88,9 +86,7 @@ def parse_page(url: str, html: str) -> Dict:
             # Try finding any link tag and checking if canonical is in rel
             for link in soup.find_all("link"):
                 rel_attr = link.get("rel", [])
-                if isinstance(rel_attr, list) and "canonical" in [
-                    r.lower() for r in rel_attr
-                ]:
+                if isinstance(rel_attr, list) and "canonical" in [r.lower() for r in rel_attr]:
                     canonical_tag = link
                     break
                 elif isinstance(rel_attr, str) and rel_attr.lower() == "canonical":

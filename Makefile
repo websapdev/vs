@@ -17,6 +17,7 @@ test:
 
 lint:
 	ruff check api/api.py api/vysalytica/config.py api/vysalytica/db/__init__.py api/vysalytica/middleware.py scripts/dev_db_reset.py tests
+	black --check api tests scripts
 
 format:
 	isort api tests scripts

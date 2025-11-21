@@ -250,7 +250,7 @@ RULE_DEFINITION_SEED_DATA = [
         "pack": "aio",
         "description": "All indexable pages should declare a canonical URL to avoid duplication.",
         "why": "Canonical tags help AI models resolve duplicates and consolidate authority.",
-        "fix": "Add rel=\"canonical\" links to every indexable page, excluding those marked noindex.",
+        "fix": 'Add rel="canonical" links to every indexable page, excluding those marked noindex.',
         "confidence": 0.9,
         "acceptance_criteria": "Every indexable page includes a canonical link element.",
     },

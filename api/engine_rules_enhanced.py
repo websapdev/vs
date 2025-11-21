@@ -9,7 +9,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 from urllib.parse import urlparse
 
-
 # Enhanced rule pack definitions with new 2025 rules
 RULE_PACKS = {
     "base": [
@@ -90,11 +89,7 @@ def _iter_jsonld(pages: List[Dict]) -> List[Tuple[Dict, Dict, List[str]]]:
     for page in pages:
         for item in page.get("jsonld", []):
             item_type = item.get("@type")
-            types = (
-                item_type
-                if isinstance(item_type, list)
-                else [item_type] if item_type else []
-            )
+            types = item_type if isinstance(item_type, list) else [item_type] if item_type else []
             yield page, item, types
 
 
@@ -175,10 +170,7 @@ def _page_has_social_link(page: Dict[str, Any]) -> bool:
         sameas_urls = _get_sameas_urls(item)
         for url in sameas_urls:
             domain = urlparse(url).netloc.lower()
-            if any(
-                domain.endswith(social_domain)
-                for social_domain in SOCIAL_PROFILE_DOMAINS
-            ):
+            if any(domain.endswith(social_domain) for social_domain in SOCIAL_PROFILE_DOMAINS):
                 return True
     # Fallback to anchor links
     for link in page.get("links", []):
@@ -186,9 +178,7 @@ def _page_has_social_link(page: Dict[str, Any]) -> bool:
         if not href:
             continue
         domain = urlparse(href).netloc.lower()
-        if any(
-            domain.endswith(social_domain) for social_domain in SOCIAL_PROFILE_DOMAINS
-        ):
+        if any(domain.endswith(social_domain) for social_domain in SOCIAL_PROFILE_DOMAINS):
             return True
     return False
 
@@ -296,9 +286,7 @@ def check_canonicals(pages: List[Dict], site_meta: Dict) -> Dict:
     if total == 0:
         return {
             "status": "fail",
-            "evidence": [
-                {"url": site_meta["base_url"], "snippet": "No pages to check"}
-            ],
+            "evidence": [{"url": site_meta["base_url"], "snippet": "No pages to check"}],
         }
 
     with_canonical = sum(1 for page in pages if page.get("canonical"))
@@ -310,9 +298,7 @@ def check_canonicals(pages: List[Dict], site_meta: Dict) -> Dict:
     urls_without = [page["url"] for page in pages if not page.get("canonical")]
     return {
         "status": "fail",
-        "evidence": [
-            {"url": url, "snippet": "Missing canonical tag"} for url in urls_without[:3]
-        ],
+        "evidence": [{"url": url, "snippet": "Missing canonical tag"} for url in urls_without[:3]],
     }
 
 
@@ -384,9 +370,7 @@ def check_breadcrumb(pages: List[Dict], site_meta: Dict) -> Dict:
 
     return {
         "status": "fail",
-        "evidence": [
-            {"url": site_meta["base_url"], "snippet": "No BreadcrumbList schema found"}
-        ],
+        "evidence": [{"url": site_meta["base_url"], "snippet": "No BreadcrumbList schema found"}],
     }
 
 
@@ -399,10 +383,7 @@ def check_article_schema(pages: List[Dict], site_meta: Dict) -> Dict:
             jsonld_type = jsonld.get("@type", "")
             types = [jsonld_type] if isinstance(jsonld_type, str) else jsonld_type
 
-            if any(
-                t in types
-                for t in ["Article", "BlogPosting", "NewsArticle", "TechArticle"]
-            ):
+            if any(t in types for t in ["Article", "BlogPosting", "NewsArticle", "TechArticle"]):
                 # Check for author and datePublished
                 has_author = "author" in jsonld
                 has_date = "datePublished" in jsonld
@@ -430,15 +411,11 @@ def check_headings(pages: List[Dict], site_meta: Dict) -> Dict:
     if total == 0:
         return {
             "status": "fail",
-            "evidence": [
-                {"url": site_meta["base_url"], "snippet": "No pages to check"}
-            ],
+            "evidence": [{"url": site_meta["base_url"], "snippet": "No pages to check"}],
         }
 
     with_headings = sum(
-        1
-        for page in pages
-        if page.get("h_tags", {}).get("h2") and page.get("h_tags", {}).get("h3")
+        1 for page in pages if page.get("h_tags", {}).get("h2") and page.get("h_tags", {}).get("h3")
     )
     pct = (with_headings / total) * 100
 
@@ -454,8 +431,7 @@ def check_headings(pages: List[Dict], site_meta: Dict) -> Dict:
     return {
         "status": "fail",
         "evidence": [
-            {"url": url, "snippet": "Missing H2/H3 structure"}
-            for url in urls_without[:3]
+            {"url": url, "snippet": "Missing H2/H3 structure"} for url in urls_without[:3]
         ],
     }
 
@@ -467,9 +443,7 @@ def check_tldr_sections(pages: List[Dict], site_meta: Dict) -> Dict:
     for page in pages:
         # Check in headings
         h_tags = page.get("h_tags", {})
-        all_headings = (
-            h_tags.get("h1", []) + h_tags.get("h2", []) + h_tags.get("h3", [])
-        )
+        all_headings = h_tags.get("h1", []) + h_tags.get("h2", []) + h_tags.get("h3", [])
 
         has_tldr = any(
             "tl;dr" in h.lower()
@@ -524,9 +498,7 @@ def check_content_length(pages: List[Dict], site_meta: Dict) -> Dict:
     if len(pages) == 0:
         return {
             "status": "fail",
-            "evidence": [
-                {"url": site_meta["base_url"], "snippet": "No pages to check"}
-            ],
+            "evidence": [{"url": site_meta["base_url"], "snippet": "No pages to check"}],
         }
 
     pct = (substantial_pages / len(pages)) * 100
@@ -576,9 +548,7 @@ def check_author_authority(pages: List[Dict], site_meta: Dict) -> Dict:
                 author = jsonld["author"]
                 # Check if author has additional details
                 if isinstance(author, dict):
-                    has_details = (
-                        "url" in author or "sameAs" in author or "jobTitle" in author
-                    )
+                    has_details = "url" in author or "sameAs" in author or "jobTitle" in author
                     if has_details:
                         pages_with_authors += 1
                         break
@@ -589,9 +559,7 @@ def check_author_authority(pages: List[Dict], site_meta: Dict) -> Dict:
     if len(pages) == 0:
         return {
             "status": "fail",
-            "evidence": [
-                {"url": site_meta["base_url"], "snippet": "No pages to check"}
-            ],
+            "evidence": [{"url": site_meta["base_url"], "snippet": "No pages to check"}],
         }
 
     pct = (pages_with_authors / len(pages)) * 100
@@ -623,9 +591,7 @@ def check_author_authority(pages: List[Dict], site_meta: Dict) -> Dict:
 def check_product_schema(pages: List[Dict], site_meta: Dict) -> Dict:
     """Checks if Product schema exists on product pages."""
     product_pages = [
-        p
-        for p in pages
-        if "/product" in p["url"].lower() or "/shop" in p["url"].lower()
+        p for p in pages if "/product" in p["url"].lower() or "/shop" in p["url"].lower()
     ]
     pages_to_check = product_pages if product_pages else pages
 
@@ -639,18 +605,14 @@ def check_product_schema(pages: List[Dict], site_meta: Dict) -> Dict:
 
     return {
         "status": "fail",
-        "evidence": [
-            {"url": site_meta["base_url"], "snippet": "No Product schema found"}
-        ],
+        "evidence": [{"url": site_meta["base_url"], "snippet": "No Product schema found"}],
     }
 
 
 def check_offer_fields(pages: List[Dict], site_meta: Dict) -> Dict:
     """Checks if Product schema includes complete Offer data."""
     product_pages = [
-        p
-        for p in pages
-        if "/product" in p["url"].lower() or "/shop" in p["url"].lower()
+        p for p in pages if "/product" in p["url"].lower() or "/shop" in p["url"].lower()
     ]
     pages_to_check = product_pages if product_pages else pages
 
@@ -683,18 +645,14 @@ def check_offer_fields(pages: List[Dict], site_meta: Dict) -> Dict:
 
     return {
         "status": "fail",
-        "evidence": [
-            {"url": site_meta["base_url"], "snippet": "No Product schema found"}
-        ],
+        "evidence": [{"url": site_meta["base_url"], "snippet": "No Product schema found"}],
     }
 
 
 def check_product_reviews(pages: List[Dict], site_meta: Dict) -> Dict:
     """NEW: Checks if products have review schema (31% impact on AI recommendations)."""
     product_pages = [
-        p
-        for p in pages
-        if "/product" in p["url"].lower() or "/shop" in p["url"].lower()
+        p for p in pages if "/product" in p["url"].lower() or "/shop" in p["url"].lower()
     ]
     if not product_pages:
         return {"status": "pass", "evidence": []}  # Not applicable
@@ -771,9 +729,7 @@ def check_aggregate_rating(pages: List[Dict], site_meta: Dict) -> Dict:
 
 def check_openapi(pages: List[Dict], site_meta: Dict) -> Dict:
     """Checks if OpenAPI spec is discoverable."""
-    docs_pages = [
-        p for p in pages if "/docs" in p["url"].lower() or "/api" in p["url"].lower()
-    ]
+    docs_pages = [p for p in pages if "/docs" in p["url"].lower() or "/api" in p["url"].lower()]
 
     if docs_pages:
         return {
@@ -794,9 +750,7 @@ def check_openapi(pages: List[Dict], site_meta: Dict) -> Dict:
 
 def check_code_examples(pages: List[Dict], site_meta: Dict) -> Dict:
     """NEW: Checks for code examples in documentation (usage data signal)."""
-    docs_pages = [
-        p for p in pages if "/docs" in p["url"].lower() or "/api" in p["url"].lower()
-    ]
+    docs_pages = [p for p in pages if "/docs" in p["url"].lower() or "/api" in p["url"].lower()]
 
     if not docs_pages:
         return {"status": "pass", "evidence": []}  # Not applicable
@@ -886,10 +840,7 @@ def check_org_sameas_authority(pages: List[Dict], site_meta: Dict) -> Dict:
                 sameas_found = True
                 for profile_url in sameas_urls:
                     domain = urlparse(profile_url).netloc.lower()
-                    if any(
-                        domain.endswith(authority)
-                        for authority in AUTHORITY_SAMEAS_DOMAINS
-                    ):
+                    if any(domain.endswith(authority) for authority in AUTHORITY_SAMEAS_DOMAINS):
                         authority_hits.append(
                             {
                                 "url": page.get("url", base_url),
@@ -1296,10 +1247,7 @@ def check_org_contact_profiles(pages: List[Dict], site_meta: Dict) -> Dict:
                 contact_points.append(page.get("url", base_url))
             for profile_url in _get_sameas_urls(item):
                 domain = urlparse(profile_url).netloc.lower()
-                if any(
-                    domain.endswith(required)
-                    for required in LINKEDIN_CRUNCHBASE_DOMAINS
-                ):
+                if any(domain.endswith(required) for required in LINKEDIN_CRUNCHBASE_DOMAINS):
                     profile_hits.append(
                         {
                             "url": page.get("url", base_url),
@@ -1423,9 +1371,7 @@ def check_org_founder(pages: List[Dict], site_meta: Dict) -> Dict:
                         founder_links.append(
                             {
                                 "url": page.get("url", base_url),
-                                "name": founder.get("name")
-                                or founder.get("@id")
-                                or "Person",
+                                "name": founder.get("name") or founder.get("@id") or "Person",
                             }
                         )
 
@@ -1701,9 +1647,7 @@ def check_faqpage_detail(pages: List[Dict], site_meta: Dict) -> Dict:
             "status": "partial",
             "evidence": [
                 {
-                    "url": (
-                        incomplete_entries[0]["url"] if incomplete_entries else base_url
-                    ),
+                    "url": (incomplete_entries[0]["url"] if incomplete_entries else base_url),
                     "snippet": "FAQPage schema lacks acceptedAnswer text for questions",
                 }
             ],
@@ -1917,12 +1861,8 @@ def check_multimodal_accessibility(pages: List[Dict], site_meta: Dict) -> Dict:
 
     for page in pages:
         media = page.get("media", {}) if isinstance(page.get("media"), dict) else {}
-        images = (
-            media.get("images", {}) if isinstance(media.get("images"), dict) else {}
-        )
-        videos = (
-            media.get("videos", {}) if isinstance(media.get("videos"), dict) else {}
-        )
+        images = media.get("images", {}) if isinstance(media.get("images"), dict) else {}
+        videos = media.get("videos", {}) if isinstance(media.get("videos"), dict) else {}
         total_images += images.get("total", 0)
         images_with_alt += images.get("with_alt", 0)
         has_captions = has_captions or videos.get("has_captions", False)
@@ -2258,9 +2198,7 @@ def check_semantic_html_coverage(pages: List[Dict], site_meta: Dict) -> Dict:
     lacking = []
     for page in pages:
         semantic_tags = (
-            page.get("semantic_tags", {})
-            if isinstance(page.get("semantic_tags"), dict)
-            else {}
+            page.get("semantic_tags", {}) if isinstance(page.get("semantic_tags"), dict) else {}
         )
         tag_usage = sum(1 for count in semantic_tags.values() if count)
         if tag_usage >= 3:
@@ -2812,9 +2750,7 @@ RULES = {
 }
 
 
-def evaluate(
-    pages: List[Dict], site_meta: Dict, packs: List[str]
-) -> Tuple[List[Dict], Dict]:
+def evaluate(pages: List[Dict], site_meta: Dict, packs: List[str]) -> Tuple[List[Dict], Dict]:
     """
     Evaluates all relevant rules and calculates scores.
     Enhanced with 2025 AI visibility best practices.
@@ -2866,9 +2802,7 @@ def evaluate(
         category_scores[category] = score
 
     # Calculate overall score
-    overall_score = (
-        sum(category_scores.values()) / len(category_scores) if category_scores else 0
-    )
+    overall_score = sum(category_scores.values()) / len(category_scores) if category_scores else 0
 
     scores = {"overall": overall_score, "by_category": category_scores}
 
