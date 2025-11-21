@@ -27,11 +27,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt -r requirements-dev.txt
       - name: Lint
-        run: |
-          ruff check api/api.py api/vysalytica/config.py api/vysalytica/db/__init__.py api/vysalytica/middleware.py scripts/dev_db_reset.py tests
-          black --check api tests scripts
+        run: make lint
       - name: Tests
-        run: pytest -q --cov=api --cov-report=term-missing
+        run: make test
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
