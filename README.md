@@ -1,111 +1,101 @@
 # Vysalytica API
 
-Production-ready REST API for AI Visibility Audit Tool, optimized for Render deployment.
+Production-ready Flask backend for the Vysalytica AI Visibility Audit tool. The service is ready to pair with the Next.js frontend, ships with health/version discovery endpoints, and includes CI/test automation.
 
-## Overview
+## Quickstart
 
-The Vysalytica API provides endpoints for:
-- Website AI visibility auditing
-- Citation tracking and analysis
-- API key management
-- Plan enforcement and rate limiting
-- Report generation (Markdown/DOCX)
-
-## Local Development
-
-### Setup
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-### Environment Configuration
-```bash
-# Copy environment template and configure
 cp .env.example .env
-# Edit .env with your local configuration values
-
-# Load environment variables for testing
-export $(grep -v '^#' .env.example | xargs)
-python -c "import os; print('env ok')"
+make install
+make dev  # serves http://localhost:8000
 ```
 
-### Run Locally
+Key commands:
+- `make run` – production-style Gunicorn start
+- `make test` – pytest suite with coverage shim
+- `make lint` / `make format` – Ruff + Black/Isort
+
+## Environment variables
+
+`.env.example` documents defaults:
+
+- `FLASK_ENV=development`
+- `DATABASE_URL=sqlite:///api/data/vysalytica.db`
+- `SECRET_KEY=changeme`
+- `RATE_LIMIT=60/minute`
+- `CORS_ORIGINS=http://localhost:3000,https://*.onrender.com`
+- `LOG_LEVEL=INFO`
+
+Additional runtime knobs:
+- `LIMITER_STORAGE_URI` (e.g., `memory://` for dev, `redis://` in prod)
+- `WIDGET_ALLOWED_ORIGINS` to constrain unauthenticated widget calls
+- `QUICKSCAN_CACHE_ENABLED` / `QUICKSCAN_CACHE_TTL_SECONDS` for caching
+
+## Running locally
+
+- Dev server: `make dev` (Flask reloader)
+- Gunicorn: `make run` or `heroku local` with the provided `Procfile`
+- Health: `curl http://localhost:8000/healthz`
+- Version: `curl http://localhost:8000/version`
+
+SQLite lives at `api/data/vysalytica.db` by default. Reset it with:
+
 ```bash
-gunicorn api:app -w 2 -k gthread -b 0.0.0.0:8000 --timeout 120
+python scripts/dev_db_reset.py
 ```
 
-The API will be available at `http://localhost:8000`
+## Frontend integration
 
-## Health Check
+- **Base URL:** `http://localhost:8000`
+- **CORS:** Allowed origins come from `CORS_ORIGINS` (comma separated, wildcards supported). Credentials are enabled and `Content-Disposition` is exposed for downloads.
+- **Preflight:** Generic `OPTIONS` handlers are registered for all paths.
+- **Error shape:** `{ "error": { "code": "string", "message": "string" } }`
+
+### Core endpoints
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/healthz` | Liveness + DB probe |
+| GET | `/version` | Git SHA and build metadata |
+| GET | `/openapi.json` | Lightweight route listing |
+| GET | `/api/health` | Legacy health check |
+| GET | `/api/version` | Legacy version info |
+| POST | `/api/audit` | Run an audit (JSON or DOCX) |
+
+Example audit request:
 
 ```bash
-curl http://localhost:8000/api/health
+curl -X POST http://localhost:8000/api/audit \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://example.com", "packs": ["base"], "plan": "quickscan"}'
 ```
 
-Should return:
+Example audit JSON response (truncated):
+
 ```json
-{"status": "healthy", "version": "0.1"}
+{
+  "success": true,
+  "data": {
+    "audit_id": 1,
+    "url": "https://example.com",
+    "domain": "example.com",
+    "page_count": 3,
+    "scores": { "overall": 80.0, "by_category": {"base": 80.0} },
+    "findings": [ ... ]
+  }
+}
 ```
 
-## Render Deployment
+## Logging
 
-### Build Command
-```bash
-pip install --upgrade pip && pip install -r requirements.txt
-```
+Structured JSON logs are emitted to stdout and honor `LOG_LEVEL`. Proxy headers are trusted for rate limiting when running behind load balancers.
 
-### Start Command
-```bash
-gunicorn api:app -w 2 -k gthread -b 0.0.0.0:$PORT --timeout 120
-```
+## Deployment (Render/Heroku)
 
-### Environment Variables on Render
-Configure these in your Render service environment:
-- `DATABASE_URL` - PostgreSQL connection string
-- `OPENAI_API_KEY` - OpenAI API key for AI features
-- `ANTHROPIC_API_KEY` - Anthropic API key for Claude integration
-- `CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed frontend origins
-- `ROUTE_LLM_API_KEY` - RouteLLM API key if using routing service
-- `LIMITER_STORAGE_URI` - Rate limiter storage (default: `memory://`)
-- `ENV=prod` - Set to production mode
+- `Procfile`: `web: PYTHONPATH=. gunicorn api:app --workers 2 --threads 4 --timeout 120`
+- `render.yaml` included for Render one-click deploy (health check `/healthz`).
+- Default to SQLite if `DATABASE_URL` is not set; Postgres is recommended for production.
 
-## API Endpoints
+## Testing & CI
 
-- `GET /api/health` - Health check
-- `GET /api/version` - Version and configuration info
-- `POST /api/audit` - Run website audit
-- `GET /api/audits` - List audit history
-- `GET /api/audits/{id}` - Get specific audit
-- `GET /api/citations` - Citation tracking
-- `POST /api/keys` - Generate API key
-- `GET /api/keys` - List API keys
-- `DELETE /api/keys/{id}` - Revoke API key
-
-## Architecture
-
-- **Entry Point**: `api/__init__.py` exports Flask `app`
-- **Core API**: `api/api.py` contains all route handlers
-- **Business Logic**: `api/vysalytica/` package with engine modules
-- **Database**: SQLAlchemy with PostgreSQL
-- **Rate Limiting**: Flask-Limiter (memory or Redis)
-- **CORS**: Configurable per environment
-
-## Repository Structure
-
-```
-├── api/                    # Main API package
-│   ├── __init__.py        # Exports Flask app
-│   ├── api.py             # Flask routes and handlers
-│   ├── engine_*.py        # Core audit engines
-│   └── vysalytica/        # Business logic package
-├── requirements.txt       # Production dependencies only
-├── runtime.txt           # Python 3.11.9
-├── Procfile              # Gunicorn startup command
-├── .env.example          # Environment template
-├── .gitignore           # Python/production gitignore
-├── README.md            # This file
-└── archive/             # Archived non-production files
-```
+GitHub Actions (`.github/workflows/ci.yml`) runs Ruff, Black checks, and the pytest suite with coverage output. Local `make test` uses the same entry point. If offline, stub coverage plugins in `vendor/` keep the suite runnable.

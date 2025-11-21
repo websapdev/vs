@@ -9,14 +9,18 @@ normalization required by the application.
 from __future__ import annotations
 
 import os
-from functools import lru_cache
-from typing import Any, Optional
+from functools import cache
+from typing import Any
 
 DEFAULT_ROUTELLM_API_KEY = "s2_887db278b1b24f14b49fe0294436e87a"
 DEFAULT_ROUTELLM_BASE_URL = "https://api.abacus.ai/v1"
 DEFAULT_ROUTELLM_MODEL = "gpt-3.5-turbo"
-DEFAULT_DATABASE_URL = "sqlite:///vysalytica.db"
+DEFAULT_DATABASE_URL = "sqlite:///api/data/vysalytica.db"
 DEFAULT_API_BASE_URL = "http://localhost:8080/api"
+DEFAULT_SECRET_KEY = "changeme"
+DEFAULT_RATE_LIMIT = "60/minute"
+DEFAULT_CORS_ORIGINS = "http://localhost:3000,https://*.onrender.com"
+DEFAULT_LOG_LEVEL = "INFO"
 
 try:
     import streamlit as _st  # type: ignore
@@ -24,7 +28,7 @@ except Exception:  # pragma: no cover - streamlit not always available
     _st = None
 
 
-def _normalize_value(value: Any) -> Optional[str]:
+def _normalize_value(value: Any) -> str | None:
     if value is None:
         return None
     if isinstance(value, str):
@@ -34,7 +38,7 @@ def _normalize_value(value: Any) -> Optional[str]:
     return cleaned or None
 
 
-def _get_from_streamlit(key: str) -> Optional[str]:
+def _get_from_streamlit(key: str) -> str | None:
     if _st is None:
         return None
     try:
@@ -50,8 +54,8 @@ def _get_from_streamlit(key: str) -> Optional[str]:
     return None
 
 
-@lru_cache(maxsize=None)
-def _get_value(key: str) -> Optional[str]:
+@cache
+def _get_value(key: str) -> str | None:
     secret_value = _get_from_streamlit(key)
     if secret_value is not None:
         return secret_value
@@ -63,7 +67,7 @@ def clear_cached_config() -> None:
     _get_value.cache_clear()  # type: ignore[attr-defined]
 
 
-def get_routellm_api_key() -> Optional[str]:
+def get_routellm_api_key() -> str | None:
     """Return the configured RouteLLM API key, if any."""
     return _get_value("ROUTELLM_API_KEY") or DEFAULT_ROUTELLM_API_KEY
 
@@ -78,12 +82,12 @@ def get_routellm_model() -> str:
     return _get_value("ROUTELLM_MODEL") or DEFAULT_ROUTELLM_MODEL
 
 
-def get_openai_api_key() -> Optional[str]:
+def get_openai_api_key() -> str | None:
     """Return the configured OpenAI API key, if present."""
     return _get_value("OPENAI_API_KEY")
 
 
-def get_anthropic_api_key() -> Optional[str]:
+def get_anthropic_api_key() -> str | None:
     """Return the configured Anthropic API key, if present."""
     return _get_value("ANTHROPIC_API_KEY")
 
@@ -102,6 +106,26 @@ def get_database_url() -> str:
     return _normalize_database_url(raw_url)
 
 
+def get_secret_key() -> str:
+    """Return the Flask secret key."""
+    return _get_value("SECRET_KEY") or DEFAULT_SECRET_KEY
+
+
+def get_rate_limit() -> str:
+    """Return the default rate limit string for flask-limiter."""
+    return _get_value("RATE_LIMIT") or DEFAULT_RATE_LIMIT
+
+
+def get_cors_origins() -> str:
+    """Return the configured CORS origins string."""
+    return _get_value("CORS_ORIGINS") or DEFAULT_CORS_ORIGINS
+
+
+def get_log_level() -> str:
+    """Return configured log level name."""
+    return (_get_value("LOG_LEVEL") or DEFAULT_LOG_LEVEL).upper()
+
+
 def _strip_trailing_slashes(url: str) -> str:
     normalized = url
     while normalized.endswith("/") and not normalized.endswith("://"):
@@ -118,8 +142,9 @@ def get_api_base_url() -> str:
 def debug_openai_client_info():
     """Debug OpenAI client initialization parameters."""
     try:
-        from openai import OpenAI
         import inspect
+
+        from openai import OpenAI
 
         init_sig = inspect.signature(OpenAI.__init__)
         params = list(init_sig.parameters.keys())
@@ -130,24 +155,30 @@ def debug_openai_client_info():
 
 
 def create_openai_client_safe(**kwargs):
-    """Create OpenAI client with explicit 'proxies' removal to prevent RouteLLM initialization errors."""
+    """Create OpenAI client after dropping any unexpected proxy settings."""
     # Remove proxies if present (defensive measure against library version conflicts)
-    kwargs.pop('proxies', None)
+    kwargs.pop("proxies", None)
     from openai import OpenAI
+
     return OpenAI(**kwargs)
 
 
 def create_anthropic_client_safe(**kwargs):
     """Create Anthropic client with explicit 'proxies' removal to prevent initialization errors."""
     # Remove proxies if present (defensive measure against library version conflicts)
-    kwargs.pop('proxies', None)
+    kwargs.pop("proxies", None)
     import anthropic
+
     return anthropic.Anthropic(**kwargs)
 
 
 __all__ = [
     "DEFAULT_API_BASE_URL",
     "DEFAULT_DATABASE_URL",
+    "DEFAULT_CORS_ORIGINS",
+    "DEFAULT_LOG_LEVEL",
+    "DEFAULT_RATE_LIMIT",
+    "DEFAULT_SECRET_KEY",
     "DEFAULT_ROUTELLM_API_KEY",
     "DEFAULT_ROUTELLM_BASE_URL",
     "DEFAULT_ROUTELLM_MODEL",
@@ -157,9 +188,13 @@ __all__ = [
     "debug_openai_client_info",
     "get_anthropic_api_key",
     "get_api_base_url",
+    "get_cors_origins",
     "get_database_url",
+    "get_log_level",
     "get_openai_api_key",
+    "get_rate_limit",
     "get_routellm_api_key",
     "get_routellm_base_url",
     "get_routellm_model",
+    "get_secret_key",
 ]

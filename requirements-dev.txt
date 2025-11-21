@@ -1,0 +1,7 @@
+pytest
+coverage
+pytest-cov
+requests-mock
+black
+ruff
+isort

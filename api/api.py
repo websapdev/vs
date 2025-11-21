@@ -3,93 +3,200 @@ Flask API for AI Visibility Audit Tool
 Provides REST endpoints for the web front-end
 """
 
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
-from datetime import datetime
-from urllib.parse import urlparse
-import os
-import io
+from __future__ import annotations
 
-from api import engine_crawl
-from api import engine_parse
+import io
+import json
+import logging
+import os
+import platform
+import subprocess
+import sys
+from datetime import datetime
+from typing import Any
+from urllib.parse import urlparse
+
+from flask import Flask, jsonify, request, send_file
+from flask_cors import CORS
+from sqlalchemy import text
+from werkzeug.exceptions import HTTPException
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+from api import engine_crawl, engine_parse, engine_report
 from api import engine_rules_enhanced as engine_rules
-from api import engine_report
+from api.vysalytica import engine_ai_visibility, engine_fixgen, plans
+from api.vysalytica.config import (
+    get_cors_origins,
+    get_log_level,
+    get_secret_key,
+)
 from api.vysalytica.db import SessionLocal
 from api.vysalytica.db.migrations import run_migrations
+from api.vysalytica.db.models import AnswerGraph as AnswerGraphModel
 from api.vysalytica.db.models import (
     AuditRun,
-    Finding,
     CitationSnapshot,
-    AnswerGraph as AnswerGraphModel,
-    Playbook as PlaybookModel,
-    PlaybookFix as PlaybookFixModel,
+    Finding,
 )
-from api.vysalytica import engine_ai_visibility, engine_fixgen
-from api.vysalytica.middleware import (
-    limiter,
-    require_api_key,
-    generate_api_key,
-    list_api_keys,
-    get_quickscan_widget_rate_limit,
-)
-from api.vysalytica import plans
+from api.vysalytica.db.models import Playbook as PlaybookModel
+from api.vysalytica.db.models import PlaybookFix as PlaybookFixModel
 from api.vysalytica.engine_answer_graph import build_answer_graph
 from api.vysalytica.engine_playbooks import generate_playbook
+from api.vysalytica.middleware import (
+    generate_api_key,
+    get_quickscan_widget_rate_limit,
+    limiter,
+    list_api_keys,
+)
 
 app = Flask(__name__)
+BUILT_AT = datetime.utcnow().isoformat() + "Z"
 
-app.logger.info("Initializing database...")
-if not run_migrations():
-    app.logger.warning(
-        "Database migrations reported a failure; proceeding with caution."
-    )
-else:
-    app.logger.info("Database ready!")
 
-# CORS: Restrict by environment configuration in production; default open for dev
-import os as _os
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:  # pragma: no cover - trivial
+        payload = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "level": record.levelname,
+            "name": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exc_info"] = self.formatException(record.exc_info)
+        return json.dumps(payload)
 
-_cors_allowed = _os.getenv("CORS_ALLOWED_ORIGINS", "*").strip()
-if _cors_allowed and _cors_allowed != "*":
-    allowed_list = [o.strip() for o in _cors_allowed.split(",") if o.strip()]
-    CORS(app, resources={r"/api/*": {"origins": allowed_list}})
-else:
-    CORS(app)
 
-# Initialize rate limiter (Redis if configured)
-_limiter_storage = _os.getenv("LIMITER_STORAGE_URI", "memory://")
-try:
-    from api.vysalytica.middleware import limiter as _existing
+def configure_logging(level_name: str) -> None:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JsonFormatter())
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.addHandler(handler)
+    root.setLevel(level_name)
 
-    if getattr(_existing, "storage_uri", None) != _limiter_storage:
-        from flask_limiter import Limiter as _Limiter
-        from flask_limiter.util import get_remote_address as _get_remote_address
 
-        limiter = _Limiter(
-            key_func=_get_remote_address,
-            default_limits=["100 per hour"],
-            storage_uri=_limiter_storage,
+def _parse_origins(raw: str) -> list[str]:
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+def create_app(testing: bool = False) -> Flask:
+    configure_logging(get_log_level())
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+    app.config["SECRET_KEY"] = get_secret_key()
+    app.config["JSON_SORT_KEYS"] = False
+    app.config["TESTING"] = testing
+
+    app.logger.info("Initializing database...")
+    if not run_migrations():
+        app.logger.warning("Database migrations reported a failure; proceeding with caution.")
+    else:
+        app.logger.info("Database ready!")
+
+    # CORS configuration
+    origins = _parse_origins(get_cors_origins())
+    cors_kwargs: dict[str, Any] = {
+        "supports_credentials": True,
+        "resources": {r"/*": {"origins": origins or "*"}},
+        "expose_headers": ["Content-Disposition"],
+    }
+    CORS(app, **cors_kwargs)
+
+    limiter.init_app(app)
+
+    register_error_handlers(app)
+    return app
+
+
+def register_error_handlers(app: Flask) -> None:
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(exc: HTTPException):
+        code = exc.code or 500
+        return jsonify({"error": {"code": str(code), "message": exc.description}}), code
+
+    @app.errorhandler(Exception)
+    def handle_unexpected(exc: Exception):  # pragma: no cover - defensive
+        app.logger.exception("Unhandled exception")
+        return (
+            jsonify({"error": {"code": "500", "message": str(exc)}}),
+            500,
         )
-except Exception:
-    pass
-limiter.init_app(app)
+
+
+def _get_git_sha() -> str:
+    try:
+        return (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+            )
+            .decode()
+            .strip()
+        )
+    except Exception:
+        return os.getenv("GIT_SHA", "unknown")
+
+
+def _build_version_payload() -> dict[str, Any]:
+    return {
+        "git_sha": _get_git_sha(),
+        "built_at": BUILT_AT,
+        "python": platform.python_version(),
+        "app": "vysalytica-api",
+    }
+
+
+def _build_openapi_spec() -> dict[str, Any]:
+    paths: dict[str, Any] = {}
+    for rule in app.url_map.iter_rules():
+        if rule.endpoint == "static":
+            continue
+        methods = [
+            method
+            for method in sorted(rule.methods)
+            if method in {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"}
+        ]
+        paths[rule.rule] = {"methods": methods}
+    return {
+        "openapi": "3.0.0",
+        "info": {"title": "Vysalytica API", "version": _build_version_payload()["git_sha"]},
+        "paths": paths,
+    }
+
+
+@app.route("/healthz", methods=["GET"])
+def healthz():
+    status: dict[str, Any] = {"ok": True, "db": "up"}
+    try:
+        with SessionLocal() as session:
+            session.execute(text("SELECT 1"))
+    except Exception as exc:
+        status["ok"] = False
+        status["db"] = "down"
+        status["error"] = str(exc)
+        return jsonify(status), 500
+    return jsonify(status)
+
+
+@app.route("/version", methods=["GET"])
+def version_root():
+    return jsonify(_build_version_payload())
+
+
+@app.route("/openapi.json", methods=["GET"])
+def openapi_json():
+    return jsonify(_build_openapi_spec())
 
 
 @app.route("/api/health", methods=["GET"])
 def health_check():
     """Health check endpoint."""
-    return jsonify({"status": "healthy", "version": _os.getenv("APP_VERSION", "0.1")})
+    return jsonify({"status": "healthy", "version": _build_version_payload()["git_sha"]})
 
 
 @app.route("/api/version", methods=["GET"])
 def version_info():
-    return jsonify(
-        {
-            "version": _os.getenv("APP_VERSION", "0.1"),
-            "debug": _os.getenv("DEBUG", "False").lower() == "true",
-            "limiter_storage": _os.getenv("LIMITER_STORAGE_URI", "memory://"),
-        }
-    )
+    payload = _build_version_payload()
+    payload["limiter_storage"] = os.getenv("LIMITER_STORAGE_URI", "memory://")
+    return jsonify(payload)
 
 
 @app.route("/api/audit", methods=["POST"])
@@ -104,7 +211,7 @@ def run_audit():
         "packs": ["base", "ecomm", "docs"],
         "plan": "quickscan"  // optional, default: "quickscan"
     }
-    
+
     Query parameters:
     - format: "json" (default) or "docx" - Return format for the audit results
 
@@ -119,13 +226,13 @@ def run_audit():
             "findings": [...]
         }
     }
-    
+
     Returns (format=docx):
     Binary .docx file with Content-Disposition: attachment header
     """
     try:
         data = request.get_json()
-        response_format = request.args.get('format', 'json').lower()
+        response_format = request.args.get("format", "json").lower()
 
         # Validate input
         if not data or "url" not in data:
@@ -140,9 +247,7 @@ def run_audit():
             auth_key = request.headers.get("X-API-Key")
             if not auth_key:
                 return (
-                    jsonify(
-                        {"success": False, "error": "X-API-Key required for paid plans"}
-                    ),
+                    jsonify({"success": False, "error": "X-API-Key required for paid plans"}),
                     401,
                 )
 
@@ -152,16 +257,12 @@ def run_audit():
             db = SessionLocal()
             try:
                 key_record = (
-                    db.query(APIKey)
-                    .filter(APIKey.key == auth_key, APIKey.is_active == 1)
-                    .first()
+                    db.query(APIKey).filter(APIKey.key == auth_key, APIKey.is_active == 1).first()
                 )
 
                 if not key_record:
                     return (
-                        jsonify(
-                            {"success": False, "error": "Invalid or inactive API key"}
-                        ),
+                        jsonify({"success": False, "error": "Invalid or inactive API key"}),
                         401,
                     )
 
@@ -192,16 +293,9 @@ def run_audit():
         allowed_origins = os.getenv("WIDGET_ALLOWED_ORIGINS", "").strip()
         if allowed_origins:
             allowed = [o.strip() for o in allowed_origins.split(",") if o.strip()]
-            if (
-                "*" not in allowed
-                and origin
-                and origin not in allowed
-                and plan == "quickscan"
-            ):
+            if "*" not in allowed and origin and origin not in allowed and plan == "quickscan":
                 return (
-                    jsonify(
-                        {"success": False, "error": "Origin not allowed for QuickScan"}
-                    ),
+                    jsonify({"success": False, "error": "Origin not allowed for QuickScan"}),
                     403,
                 )
 
@@ -232,10 +326,7 @@ def run_audit():
                 domain = parsed_url.netloc
                 cache_key = (domain, tuple(sorted(limited_packs)))
                 last_ts = run_audit._cache_times.get(cache_key)
-                if (
-                    last_ts
-                    and (datetime.utcnow().timestamp() - last_ts) < cache_ttl_seconds
-                ):
+                if last_ts and (datetime.utcnow().timestamp() - last_ts) < cache_ttl_seconds:
                     cached_payload = run_audit._cache_store.get(cache_key)
             except Exception:
                 cached_payload = None
@@ -355,23 +446,18 @@ def run_audit():
                 pass
 
         # Return based on requested format
-        if response_format == 'docx':
+        if response_format == "docx":
             # Generate DOCX report
-            docx_bytes = engine_report.generate_docx(
-                url_input, 
-                limited_packs, 
-                scores, 
-                findings
-            )
-            
+            docx_bytes = engine_report.generate_docx(url_input, limited_packs, scores, findings)
+
             # Create file-like object
             buffer = io.BytesIO(docx_bytes)
             buffer.seek(0)
-            
+
             filename = (
                 f"{urlparse(url_input).netloc}_audit_{datetime.now().strftime('%Y%m%d')}.docx"
             )
-            
+
             return send_file(
                 buffer,
                 as_attachment=True,
@@ -432,9 +518,7 @@ def get_audit_history():
                     "overall_score": run.overall_score,
                     "category_scores": run.category_scores,
                     "page_count": run.page_count,
-                    "created_at": (
-                        run.created_at.isoformat() if run.created_at else None
-                    ),
+                    "created_at": (run.created_at.isoformat() if run.created_at else None),
                 }
                 for run in audit_runs
             ]
@@ -762,9 +846,7 @@ def generate_markdown_report():
         buffer = io.BytesIO(markdown_content.encode("utf-8"))
         buffer.seek(0)
 
-        filename = (
-            f"{urlparse(url).netloc}_audit_{datetime.now().strftime('%Y%m%d')}.md"
-        )
+        filename = f"{urlparse(url).netloc}_audit_{datetime.now().strftime('%Y%m%d')}.md"
 
         return send_file(
             buffer, as_attachment=True, download_name=filename, mimetype="text/markdown"
@@ -796,9 +878,7 @@ def generate_docx_report():
         buffer = io.BytesIO(docx_bytes)
         buffer.seek(0)
 
-        filename = (
-            f"{urlparse(url).netloc}_audit_{datetime.now().strftime('%Y%m%d')}.docx"
-        )
+        filename = f"{urlparse(url).netloc}_audit_{datetime.now().strftime('%Y%m%d')}.docx"
 
         return send_file(
             buffer,
@@ -985,6 +1065,15 @@ def api_report_playbook_docx():
         )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/", methods=["OPTIONS"])
+@app.route("/<path:any_path>", methods=["OPTIONS"])
+def options_handler(any_path: str | None = None):
+    return jsonify({"ok": True})
+
+
+app = create_app()
 
 
 if __name__ == "__main__":
