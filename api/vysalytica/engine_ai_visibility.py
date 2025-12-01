@@ -40,56 +40,56 @@ if ROUTELLM_API_KEY:
 
         OPENAI_AVAILABLE = True
         print(
-            f"✓ RouteLLM configured for citations (base_url: {ROUTELLM_BASE_URL}, model: {ROUTELLM_MODEL})"
+            f"[OK] RouteLLM configured for citations (base_url: {ROUTELLM_BASE_URL}, model: {ROUTELLM_MODEL})"
         )
     except TypeError as e:
         if "proxies" in str(e):
-            print(f"✗ RouteLLM still receiving 'proxies' argument: {e}")
-            print(f"✗ This suggests an external library is passing 'proxies'")
+            print(f"[FAIL] RouteLLM still receiving 'proxies' argument: {e}")
+            print(f"[FAIL] This suggests an external library is passing 'proxies'")
         else:
-            print(f"✗ RouteLLM initialization failed: {e}")
+            print(f"[FAIL] RouteLLM initialization failed: {e}")
         openai_client = None
     except (ImportError, Exception) as e:
-        print(f"✗ RouteLLM initialization failed: {e}")
+        print(f"[FAIL] RouteLLM initialization failed: {e}")
         openai_client = None
 elif OPENAI_API_KEY:
     try:
         openai_client = create_openai_client_safe(api_key=OPENAI_API_KEY)
         OPENAI_AVAILABLE = True
-        print("✓ OpenAI configured for citations")
+        print("[OK] OpenAI configured for citations")
     except TypeError as e:
         if "proxies" in str(e):
-            print(f"✗ OpenAI still receiving 'proxies' argument: {e}")
+            print(f"[FAIL] OpenAI still receiving 'proxies' argument: {e}")
         else:
-            print(f"✗ OpenAI initialization failed: {e}")
+            print(f"[FAIL] OpenAI initialization failed: {e}")
         openai_client = None
     except (ImportError, Exception) as e:
-        print(f"✗ OpenAI initialization failed: {e}")
+        print(f"[FAIL] OpenAI initialization failed: {e}")
         openai_client = None
 else:
     print(
-        "⚠️ RouteLLM/OpenAI API key not configured. Citation tracking for ChatGPT will be unavailable."
+        "[WARN] RouteLLM/OpenAI API key not configured. Citation tracking for ChatGPT will be unavailable."
     )
 
 # For Anthropic/Claude - RouteLLM can handle this too via OpenAI-compatible API
 if ROUTELLM_API_KEY:
     ANTHROPIC_AVAILABLE = True
-    print("✓ RouteLLM will handle Claude queries")
+    print("[OK] RouteLLM will handle Claude queries")
 elif ANTHROPIC_API_KEY:
     try:
         import anthropic
 
         ANTHROPIC_AVAILABLE = True
-        print("✓ Anthropic configured")
+        print("[OK] Anthropic configured")
     except ImportError:
         ANTHROPIC_AVAILABLE = False
         print(
-            "⚠️ Anthropic SDK not installed; Claude citation tracking disabled despite configured API key."
+            "[WARN] Anthropic SDK not installed; Claude citation tracking disabled despite configured API key."
         )
 else:
     ANTHROPIC_AVAILABLE = False
     print(
-        "⚠️ Claude citation tracking disabled. Configure ROUTELLM_API_KEY or ANTHROPIC_API_KEY to enable it."
+        "[WARN] Claude citation tracking disabled. Configure ROUTELLM_API_KEY or ANTHROPIC_API_KEY to enable it."
     )
 
 

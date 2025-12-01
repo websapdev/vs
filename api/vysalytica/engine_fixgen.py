@@ -33,30 +33,30 @@ if ROUTELLM_API_KEY:
 
         client = create_openai_client_safe(api_key=ROUTELLM_API_KEY, base_url=ROUTELLM_BASE_URL)
         OPENAI_AVAILABLE = True
-        print(f"✓ RouteLLM configured (base_url: {ROUTELLM_BASE_URL}, model: {ROUTELLM_MODEL})")
+        print(f"[OK] RouteLLM configured (base_url: {ROUTELLM_BASE_URL}, model: {ROUTELLM_MODEL})")
     except TypeError as e:
         if "proxies" in str(e):
-            print(f"✗ RouteLLM still receiving 'proxies' argument: {e}")
-            print(f"✗ This suggests an external library is passing 'proxies'")
+            print(f"[FAIL] RouteLLM still receiving 'proxies' argument: {e}")
+            print(f"[FAIL] This suggests an external library is passing 'proxies'")
         else:
-            print(f"✗ RouteLLM initialization failed: {e}")
+            print(f"[FAIL] RouteLLM initialization failed: {e}")
         client = None
     except (ImportError, Exception) as e:
-        print(f"✗ RouteLLM initialization failed: {e}")
+        print(f"[FAIL] RouteLLM initialization failed: {e}")
         client = None
 elif OPENAI_API_KEY:
     try:
         client = create_openai_client_safe(api_key=OPENAI_API_KEY)
         OPENAI_AVAILABLE = True
-        print("✓ OpenAI configured")
+        print("[OK] OpenAI configured")
     except TypeError as e:
         if "proxies" in str(e):
-            print(f"✗ OpenAI still receiving 'proxies' argument: {e}")
+            print(f"[FAIL] OpenAI still receiving 'proxies' argument: {e}")
         else:
-            print(f"✗ OpenAI initialization failed: {e}")
+            print(f"[FAIL] OpenAI initialization failed: {e}")
         client = None
     except (ImportError, Exception) as e:
-        print(f"✗ OpenAI initialization failed: {e}")
+        print(f"[FAIL] OpenAI initialization failed: {e}")
         client = None
 else:
     print("⚠️ RouteLLM/OpenAI API key not configured. Auto-fix generation is disabled.")

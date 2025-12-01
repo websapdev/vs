@@ -35,10 +35,10 @@ def ensure_findings_confidence_column() -> None:
     try:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE findings ADD COLUMN confidence FLOAT"))
-        print("✓ Added confidence column to findings table")
+        print("[OK] Added confidence column to findings table")
     except Exception as exc:
         # Log but do not fail migrations; rerunning with fresh DB will include column
-        print(f"✗ Failed to add confidence column: {exc}")
+        print(f"[FAIL] Failed to add confidence column: {exc}")
 
 
 def seed_rule_definitions() -> bool:
@@ -76,15 +76,15 @@ def seed_rule_definitions() -> bool:
         session.commit()
     except Exception as exc:
         session.rollback()
-        print(f"✗ Rule definition seeding failed: {exc}")
+        print(f"[FAIL] Rule definition seeding failed: {exc}")
         return False
     finally:
         session.close()
 
     if inserted or updated:
-        print(f"✓ Seeded {inserted} new and updated {updated} AI Optimization rule definitions")
+        print(f"[OK] Seeded {len(RULE_DEFINITION_SEED_DATA)} rule definitions")
     else:
-        print("✓ Rule definitions already up to date")
+        print("[OK] Rule definitions already up to date")
 
     return True
 
@@ -100,10 +100,10 @@ def run_migrations():
         seeded = seed_rule_definitions()
         if not seeded:
             return False
-        print("✓ Database migrations completed successfully")
+        print("[OK] Database migrations completed successfully")
         return True
     except Exception as e:
-        print(f"✗ Database migration failed: {str(e)}")
+        print(f"[FAIL] Database migration failed: {str(e)}")
         return False
 
 
@@ -114,10 +114,10 @@ def rollback_migrations():
     """
     try:
         Base.metadata.drop_all(bind=engine)
-        print("✓ Database rollback completed successfully")
+        print("[OK] Database rollback completed successfully")
         return True
     except Exception as e:
-        print(f"✗ Database rollback failed: {str(e)}")
+        print(f"[FAIL] Database rollback failed: {str(e)}")
         return False
 
 

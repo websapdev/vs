@@ -10,6 +10,91 @@ from sqlalchemy.orm import relationship
 from api.vysalytica.db import Base
 
 
+class User(Base):
+    """
+    Represents a registered user.
+    """
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    is_active = Column(Integer, default=1, nullable=False)
+
+    brands = relationship("Brand", back_populates="user", cascade="all, delete-orphan")
+    payments = relationship("Payment", back_populates="user")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "name": self.name,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Brand(Base):
+    """
+    Represents a brand or project owned by a user.
+    """
+
+    __tablename__ = "brands"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    primary_url = Column(String(512), nullable=False)
+    catalog_url = Column(String(512), nullable=True)
+    competitors = Column(JSON, nullable=True)  # List of competitor URLs
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="brands")
+    audit_runs = relationship("AuditRun", back_populates="brand", cascade="all, delete-orphan")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "primary_url": self.primary_url,
+            "catalog_url": self.catalog_url,
+            "competitors": self.competitors,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Payment(Base):
+    """
+    Represents a payment transaction (Stripe).
+    """
+
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    stripe_session_id = Column(String(255), unique=True, nullable=False, index=True)
+    amount = Column(Integer, nullable=False)  # In cents
+    currency = Column(String(3), nullable=False, default="usd")
+    status = Column(String(32), nullable=False)  # pending, paid, failed
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="payments")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "amount": self.amount,
+            "currency": self.currency,
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+
 class AuditRun(Base):
     """
     Represents a complete audit run for a website.
@@ -26,6 +111,9 @@ class AuditRun(Base):
     category_scores = Column(JSON, nullable=False)  # {"Crawlability": 85.5, ...}
     page_count = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=datetime.utcnow, index=True, nullable=False)
+    brand_id = Column(Integer, ForeignKey("brands.id"), nullable=True, index=True)
+
+    brand = relationship("Brand", back_populates="audit_runs")
 
     # Relationship to findings
     findings = relationship(
@@ -46,6 +134,7 @@ class AuditRun(Base):
             "category_scores": self.category_scores,
             "page_count": self.page_count,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "brand_id": self.brand_id,
             "findings": [f.to_dict() for f in self.findings] if self.findings else [],
         }
 

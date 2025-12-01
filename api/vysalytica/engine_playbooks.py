@@ -42,14 +42,14 @@ if ROUTELLM_API_KEY:
             api_key=ROUTELLM_API_KEY, base_url=ROUTELLM_BASE_URL
         )
         print(
-            f"✓ RouteLLM configured for playbook enrichment (base_url: {ROUTELLM_BASE_URL}, model: {ROUTELLM_MODEL})"
+            f"[OK] RouteLLM configured for playbook enrichment (base_url: {ROUTELLM_BASE_URL}, model: {ROUTELLM_MODEL})"
         )
     except TypeError as exc:
         if "proxies" in str(exc):
-            print(f"✗ RouteLLM still receiving 'proxies' argument: {exc}")
-            print(f"✗ This suggests an external library is passing 'proxies'")
+            print(f"[FAIL] RouteLLM still receiving 'proxies' argument: {exc}")
+            print(f"[FAIL] This suggests an external library is passing 'proxies'")
         else:
-            print(f"✗ RouteLLM initialization failed: {exc}")
+            print(f"[FAIL] RouteLLM initialization failed: {exc}")
         openai_client = None
     except Exception as exc:
         openai_client = None
@@ -57,12 +57,12 @@ if ROUTELLM_API_KEY:
 elif OPENAI_API_KEY:
     try:
         openai_client = create_openai_client_safe(api_key=OPENAI_API_KEY)
-        print("✓ OpenAI configured for playbook enrichment")
+        print("[OK] OpenAI configured for playbook enrichment")
     except TypeError as exc:
         if "proxies" in str(exc):
-            print(f"✗ OpenAI still receiving 'proxies' argument: {exc}")
+            print(f"[FAIL] OpenAI still receiving 'proxies' argument: {exc}")
         else:
-            print(f"✗ OpenAI initialization failed: {exc}")
+            print(f"[FAIL] OpenAI initialization failed: {exc}")
         openai_client = None
     except Exception as exc:
         openai_client = None
