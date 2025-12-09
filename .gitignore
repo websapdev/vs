@@ -9,6 +9,7 @@ venv/
 .env.*
 .pytest_cache/
 .coverage
+
 htmlcov/
 node_modules/
 .DS_Store
@@ -17,3 +18,5 @@ node_modules/
 .vscode/
 
 test_signup.py
+*.db
+*.zip
